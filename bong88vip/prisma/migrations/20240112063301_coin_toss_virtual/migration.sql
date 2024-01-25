@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "coinToss" ADD COLUMN     "maxVirtual" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "minVirtual" INTEGER NOT NULL DEFAULT 0;

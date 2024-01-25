@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "coinTossHistory" ADD COLUMN     "totalLoseAdmin" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "totalWinAdmin" DOUBLE PRECISION NOT NULL DEFAULT 0;

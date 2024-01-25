@@ -1,0 +1,488 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["filteredRelationCount", "fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id                        String                      @id @default(uuid())
+  username                  String                      @unique
+  email                     String?                     @unique
+  phone                     String?                     @unique
+  accountName               String                      @unique
+  fullName                  String?
+  balance                   Float                       @default(0)
+  hash                      String
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  disabled                  Boolean                     @default(false)
+  avatar                    String?
+  userAuthTokenExpired      userAuthTokenExpired[]
+  userAuthToken             userAuthToken[]
+  saleTransaction           saleTransaction[]
+  userTransaction           userTransaction[]
+  coinTossBet               coinTossBet[]
+  coinTossBetHistory        coinTossBetHistory[]
+  coinTossBetHistorySession coinTossBetHistorySession[]
+}
+
+model virtualUser {
+  id                        String                      @id @default(uuid())
+  accountName               String                      @unique
+  balance                   Float                       @default(0)
+  createdAt                 DateTime                    @default(now())
+  avatar                    String?
+  coinTossBet               coinTossBet[]
+  coinTossBetHistoryVirtual coinTossBetHistoryVirtual[]
+  virtualUserCoinToss       virtualUserCoinToss[]
+}
+
+model virtualUserCoinToss {
+  id            String      @id @default(uuid())
+  virtualUserId String
+  virtualUser   virtualUser @relation(fields: [virtualUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  coinTossId    String
+  coinToss      coinToss    @relation(fields: [coinTossId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  // @@id([virtualUserId, coinTossId])
+  @@index([id, coinTossId])
+}
+
+model userAvatar {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  avatar    String
+}
+
+enum userTransactionType {
+  SALEDEPOSIT
+  SALEWITHDRAW
+  ADMINDEPOSIT
+  ADMINWITHDRAW
+  TRANSFER
+  RECEIVE
+  BET
+  WIN
+}
+
+model userTransaction {
+  id              String              @id @default(uuid())
+  createdAt       DateTime            @default(now())
+  amount          Float
+  beforeBalance   Float               @default(0)
+  afterBalance    Float               @default(0)
+  transactionType userTransactionType @default(ADMINDEPOSIT)
+  refId           String? // Id của giao dịch tại các bảng khác, tuỳ từng game
+  description     String?
+  adminId         String?
+  admin           admin?              @relation(fields: [adminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  userId          String
+  user            user                @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  saleId          String?
+  sale            sale?               @relation(fields: [saleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Danh sách các token hết hạn, theo dõi nếu được sử dụng lại sẽ cho vào blacklist.
+// Sau khoảng 2 tháng thì xoá dữ liệu này đi.
+// Cái này check ngầm
+model userAuthTokenExpired {
+  id           String   @id @default(uuid())
+  userId       String
+  user         user     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  accessToken  String[]
+  refreshToken String?  @unique
+  createdAt    DateTime @default(now())
+}
+
+// Chứa thông tin đăng nhập của User
+model userAuthToken {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  usedAt       DateTime @default(now())
+  publicKey    String   @unique
+  refreshToken String   @unique
+  userId       String
+  user         user     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ip           String
+  userAgent    String
+
+  @@index([id, refreshToken, userId])
+}
+
+model admin {
+  id                    String                  @id @default(uuid())
+  username              String                  @unique
+  hash                  String
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  disabled              Boolean                 @default(false)
+  adminAuthTokenExpired adminAuthTokenExpired[]
+  adminAuthToken        adminAuthToken[]
+  saleTransaction       saleTransaction[]
+  userTransaction       userTransaction[]
+
+  @@index([username, id])
+}
+
+model adminAuthTokenExpired {
+  id           String   @id @default(uuid())
+  adminId      String
+  admin        admin    @relation(fields: [adminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  accessToken  String[]
+  refreshToken String?  @unique
+  createdAt    DateTime @default(now())
+}
+
+model adminAuthToken {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  publicKey    String   @unique
+  refreshToken String   @unique
+  adminId      String
+  admin        admin    @relation(fields: [adminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ip           String
+  userAgent    String
+
+  @@index([id, refreshToken, adminId])
+}
+
+model sale {
+  id                   String                 @id @default(uuid())
+  username             String                 @unique
+  fullName             String
+  phone                String?
+  email                String?
+  balance              Float                  @default(0)
+  hash                 String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  disabled             Boolean                @default(false)
+  saleAuthTokenExpired saleAuthTokenExpired[]
+  saleAuthToken        saleAuthToken[]
+  saleTransaction      saleTransaction[]
+  userTransaction      userTransaction[]
+  saleActions          saleActions[]
+
+  @@index([username, id])
+}
+
+model saleActions {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  action      String
+  refId       String?
+  description String
+  saleId      String
+  sale        sale     @relation(fields: [saleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([createdAt, saleId])
+}
+
+enum SaleTransactionType {
+  DEPOSIT
+  WITHDRAW
+  TRANSFER
+  RECEIVE
+}
+
+model saleTransaction {
+  id              String              @id @default(uuid())
+  createdAt       DateTime            @default(now())
+  amount          Float
+  beforeBalance   Float               @default(0)
+  afterBalance    Float               @default(0)
+  transactionType SaleTransactionType @default(DEPOSIT)
+  description     String?
+  adminId         String?
+  admin           admin?              @relation(fields: [adminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  userId          String?
+  user            user?               @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  saleId          String
+  sale            sale                @relation(fields: [saleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([saleId, createdAt])
+}
+
+model saleAuthTokenExpired {
+  id           String   @id @default(uuid())
+  saleId       String
+  sale         sale     @relation(fields: [saleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  accessToken  String[]
+  refreshToken String?  @unique
+  createdAt    DateTime @default(now())
+}
+
+model saleAuthToken {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  publicKey    String   @unique
+  refreshToken String   @unique
+  saleId       String
+  sale         sale     @relation(fields: [saleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ip           String
+  userAgent    String
+
+  @@index([id, refreshToken, saleId])
+}
+
+model coinToss {
+  id                      String   @id @default(uuid())
+  createdAt               DateTime @default(now())
+  disabled                Boolean  @default(false)
+  code                    String   @unique
+  name                    String
+  image                   String
+  instructions            String
+  timeVirtualAccess       Int      @default(0) // Thời gian kiểm tra xem có nên thêm người chơi ảo hay không
+  virtualAccessPercentage Int      @default(0) // Mỗi khi tới thời gian timeVirtualAccess sẽ random xem có login hay logout người chơi ảo không
+  minVirtual              Int      @default(0)
+  maxVirtual              Int      @default(0)
+
+  even     Int @default(0) // Số tiền đặt chẵn
+  odd      Int @default(0) // Số tiền đặt lẻ
+  oneRed   Int @default(0) // Số tiền đặt 1 đồng đỏ
+  twoRed   Int @default(0) // Số tiền đặt 2 đồng đỏ
+  threeRed Int @default(0) // Số tiền đặt 3 đồng đỏ
+  fourRed  Int @default(0) // Số tiền đặt 4 đồng đỏ
+  zeroRed  Int @default(0) // Số tiền đặt 0 đồng đỏ
+
+  redCoin                   Int?
+  result                    String?
+  resultHash                String?
+  isIniResult               Boolean                     @default(false) // consumer ini done
+  adminRedCoin              Int?
+  gameStage                 GameStage                   @default(NEW_GAME)
+  gameStartTime             DateTime?
+  allowBetting              Boolean                     @default(false)
+  coinTossBet               coinTossBet[]
+  coinTossBetHistory        coinTossBetHistory[]
+  coinTossBetHistoryVirtual coinTossBetHistoryVirtual[]
+  coinTossHistory           coinTossHistory[]
+  coinTossBetValue          coinTossBetValue[]
+  coinTossBetHistorySession coinTossBetHistorySession[]
+  coinTossHourStatistics    coinTossHourStatistics[]
+  coinTossDayStatistics     coinTossDayStatistics[]
+  virtualUserCoinToss       virtualUserCoinToss[]
+  ctrlId                    String?
+  ctrl                      ctrl?                       @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}
+
+// Lịch sử chơi game của hệ thống
+model coinTossHistory {
+  id                        String                      @id @default(uuid())
+  createdAt                 DateTime                    @default(now())
+  adminRedCoin              Int?
+  redCoin                   Int?
+  result                    String?
+  hash                      String?
+  gameStartTime             DateTime?
+  coinTossId                String
+  coinToss                  coinToss                    @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  totalBet                  Int                         @default(0)
+  totalWin                  Float                       @default(0)
+  totalLose                 Int                         @default(0)
+  totalWinAdmin             Float                       @default(0)
+  totalLoseAdmin            Int                         @default(0)
+  coinTossBetHistory        coinTossBetHistory[]
+  coinTossBetHistorySession coinTossBetHistorySession[]
+  ctrlId                    String?
+  ctrl                      ctrl?                       @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([hash, coinTossId])
+}
+
+model coinTossHourStatistics {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now())
+  coinTossId     String
+  coinToss       coinToss @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  totalBet       Int      @default(0)
+  totalWin       Float    @default(0)
+  totalLose      Int      @default(0)
+  totalWinAdmin  Float    @default(0)
+  totalLoseAdmin Int      @default(0)
+
+  @@index([coinTossId, createdAt])
+}
+
+model coinTossDayStatistics {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now())
+  coinTossId     String
+  coinToss       coinToss @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  totalBet       Int      @default(0)
+  totalWin       Float    @default(0)
+  totalLose      Int      @default(0)
+  totalWinAdmin  Float    @default(0)
+  totalLoseAdmin Int      @default(0)
+
+  @@index([coinTossId, createdAt])
+}
+
+enum GameStage {
+  NEW_GAME // 25 giây
+  LAST_5_SECONDS // 5 giây cuối cùng
+  PAYING_OUT // Đang trả tiền + Mở đĩa -> 6 giây, bao gồm 1 giây mở đĩa, 1 giây thu đồng thua, 1 giây nghỉ, 1 giây trả đồng thắng lên bàn, 1 giây nghỉ, 1 giây lấy đồng thắng trả người chơi
+  LIFTING_COVER // Đang úp đĩa 1 giây
+  SHAKING_COINS // Đang xóc đĩa 2 giây
+}
+
+// 25 + 5 + 6 + 1 + 2 = 39 giây
+// Giây đầu tiên khởi tạo game
+// 25 giây chờ cho đặt cược
+// 5 giây cuối đóng đặt cược
+// PAYING_OUT xử lý thắng thua, lịch sử
+// SHAKING_COINS đưa vào dữ liệu history
+
+model coinTossBetValue {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  disabled   Boolean  @default(false)
+  name       String
+  value      Int
+  color      String
+  percentage Int
+  coinTossId String
+  coinToss   coinToss @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}
+
+// Bảng tạm thời lưu giữ thông tin đang đặt cược
+model coinTossBet {
+  id         String       @id @default(uuid())
+  createdAt  DateTime     @default(now())
+  amount     Int
+  position   Int
+  userId     String?
+  user       user?        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  coinTossId String
+  coinToss   coinToss     @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  virtualId  String?
+  virtual    virtualUser? @relation(fields: [virtualId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([coinTossId, userId, virtualId])
+}
+
+model coinTossBetHistoryVirtual {
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now())
+  amount     Int
+  position   Int
+  winAmount  Float       @default(0)
+  virtualId  String
+  virtual    virtualUser @relation(fields: [virtualId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  coinTossId String
+  coinToss   coinToss    @relation(fields: [coinTossId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([coinTossId, virtualId])
+}
+
+// Lưu thông tin đặt cược của người chơi theo từng phiên game
+model coinTossBetHistorySession {
+  id                String           @id @default(uuid())
+  createdAt         DateTime         @default(now()) // Đặt theo thời gian bắt đầu của phiên game
+  even              Int              @default(0) // Số tiền đặt chẵn
+  odd               Int              @default(0) // Số tiền đặt lẻ
+  oneRed            Int              @default(0) // Số tiền đặt 1 đồng đỏ
+  twoRed            Int              @default(0) // Số tiền đặt 2 đồng đỏ
+  threeRed          Int              @default(0) // Số tiền đặt 3 đồng đỏ
+  fourRed           Int              @default(0) // Số tiền đặt 4 đồng đỏ
+  zeroRed           Int              @default(0) // Số tiền đặt 0 đồng đỏ
+  winAmount         Float            @default(0)
+  redCoin           Int? // Kết quả đồng đỏ
+  hash              String // Đồng bộ với hash của coinTossBetHistory
+  userId            String
+  user              user             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  isAdmin           Boolean          @default(false)
+  coinTossId        String
+  coinToss          coinToss         @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  coinTossHistoryId String?
+  coinTossHistory   coinTossHistory? @relation(fields: [coinTossHistoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ctrlId            String?
+  ctrl              ctrl?            @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([hash, userId, coinTossId, createdAt, winAmount])
+}
+
+// Lịch sử đặt của người chơi
+model coinTossBetHistory {
+  id                String          @id @default(uuid())
+  createdAt         DateTime        @default(now())
+  amount            Int
+  position          Int
+  redCoin           Int? // Kết quả đồng đỏ
+  isAdmin           Boolean         @default(false)
+  winAmount         Float           @default(0)
+  userId            String
+  user              user            @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  coinTossId        String
+  coinToss          coinToss        @relation(fields: [coinTossId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  coinTossHistoryId String
+  coinTossHistory   coinTossHistory @relation(fields: [coinTossHistoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ctrlId            String?
+  ctrl              ctrl?           @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([coinTossId, userId])
+}
+
+model ctrl {
+  id                        String                      @id @default(uuid())
+  username                  String                      @unique
+  fullName                  String
+  phone                     String?
+  email                     String?
+  hash                      String
+  createdAt                 DateTime                    @default(now())
+  disabled                  Boolean                     @default(false)
+  ctrlActions               ctrlActions[]
+  ctrlAuthTokenExpired      ctrlAuthTokenExpired[]
+  ctrlAuthToken             ctrlAuthToken[]
+  coinToss                  coinToss[]
+  coinTossHistory           coinTossHistory[]
+  coinTossBetHistorySession coinTossBetHistorySession[]
+  coinTossBetHistory        coinTossBetHistory[]
+
+  @@index([username, id])
+}
+
+model ctrlActions {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  action      String
+  refId       String?
+  description String
+  ctrlId      String
+  ctrl        ctrl     @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([createdAt, ctrlId])
+}
+
+model ctrlAuthTokenExpired {
+  id           String   @id @default(uuid())
+  ctrlId       String
+  ctrl         ctrl     @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  accessToken  String[]
+  refreshToken String?  @unique
+  createdAt    DateTime @default(now())
+}
+
+model ctrlAuthToken {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  publicKey    String   @unique
+  refreshToken String   @unique
+  ctrlId       String
+  ctrl         ctrl     @relation(fields: [ctrlId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ip           String
+  userAgent    String
+
+  @@index([id, refreshToken, ctrlId])
+}

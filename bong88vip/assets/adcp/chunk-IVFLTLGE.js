@@ -1,0 +1,1 @@
+var t={socket:"http://localhost:3000/",homeUrl:"http://localhost:3000/",apiUrl:"http://localhost:3000/admin/",assetsUrl:"http://localhost:3000/assets/",uploadUrl:"http://localhost:3000/uploads/"};export{t as a};

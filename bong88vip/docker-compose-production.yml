@@ -1,0 +1,79 @@
+version: "3.8"
+services:
+  liongames-postgresql:
+    env_file:
+      - .env
+    container_name: ${POSTGRES_HOST}
+    restart: always
+    image: postgres:16
+    expose:
+      - ${POSTGRES_PORT}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+  liongames-redis:
+    env_file:
+      - .env
+    image: redis:7.2
+    container_name: ${REDIS_HOST}
+    restart: always
+    expose:
+      - ${REDIS_PORT}
+    command: >
+      --requirepass ${REDIS_PASS}
+    volumes:
+      - ./redis_data/:/data
+  liongames-nginx:
+    env_file:
+      - .env
+    build: ./nginx-templates
+    container_name: liongames-nginx
+    restart: unless-stopped
+    depends_on:
+      - liongames-nodejs
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    #      - 443:443
+    volumes:
+      - ./nginx-log:/var/log/nginx
+      - ./nginx-templates:/etc/nginx/templates
+      - ./assets:/usr/share/nginx/html
+      - ./assets/adcp:/usr/share/nginx/adcp/adcp
+      - ./assets/actrl:/usr/share/nginx/actrl/actrl
+      - ./assets/slcp:/usr/share/nginx/slcp/slcp
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+  liongames-nodejs:
+    env_file:
+      - .env
+    build: .
+    container_name: liongames-nodejs
+    restart: unless-stopped
+    depends_on:
+      - liongames-postgresql
+      - liongames-redis
+    ports:
+      - 5555:5555
+    expose:
+      - ${SERVER_PORT}
+    volumes:
+      - ./prisma:/app/prisma
+      - ./frontend:/app/frontend
+      - .env:/app/.env
+      - ./assets:/app/assets
+      - ./server/server:/app/server
+    working_dir: /app
+
+
+#  certbot:
+#    image: certbot/certbot
+#    container_name: certbot
+#    env_file:
+#      - .env.pro
+#    volumes:
+#      - ./certbot/conf:/etc/letsencrypt
+#      - ./certbot/www:/var/www/certbot
+#    command: certonly --webroot -w /var/www/certbot --force-renewal --email ${EMAIL} -d ${NGINX_HOST} --agree-tos

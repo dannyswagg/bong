@@ -1,0 +1,1 @@
+import{E as o,fa as t,mc as u,uc as a,v as e}from"./chunk-IOOJ2VXR.js";var g=(p,n)=>{let i=t(a),m=t(u);return i.token$.pipe(o(r=>r!==null),e(r=>r?!0:(m.navigate(["/home"],{queryParams:{retUrl:n.url,login:!0}}).then(),!1)))};export{g as a};
